@@ -1,0 +1,149 @@
+openapi: 3.0.3
+info:
+  title: "API description for a personal project"
+  version: 0.1.0
+  license:
+    name: MIT
+    url: https://github.com/LassiHeikkila/mokki-cloud/license.MIT
+  contact:
+    name: Lassi Heikkilä
+    url: https://github.com/LassiHeikkila
+servers:
+  - url: http://localhost:8080
+    description: Locally run development server
+  - url: https://cloud.server.example.com
+    description: Server running in the cloud somewhere
+tags:
+- name: "environment"
+  description: "API for getting environmental data from server"
+paths:
+  /api/data/{field}/{id}/latest:
+    get:
+      description: "Get latest data"
+      tags:
+      - "environment"
+      parameters:
+        - name: field
+          description: "measurement to get, e.g. pressure, temperature or humidity"
+          in: path
+          required: true
+          style: simple
+          schema:
+            type: string
+        - name: id
+          description: "ID of sensor to get reading from, e.g. it's MAC address or some textual identifier. Must match what exists on the server."
+          in: path
+          required: true
+          style: simple
+          schema:
+            type: string
+      responses:
+        '200':
+          description: "latest data from given field for given parameters"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/measurementsArray"
+        '404':
+          description: "no data found for given parameters"
+  /api/data/{field}/{id}/range:
+    get:
+      description: "Get data between given start and stop times"
+      tags:
+      - "environment"
+      parameters:
+        - name: field
+          description: "measurement to get, e.g. pressure, temperature or humidity"
+          in: path
+          required: true
+          style: simple
+          schema:
+            type: string
+        - name: id
+          description: "ID of sensor to get reading from, e.g. it's MAC address or some textual identifier. Must match what exists on the server."
+          in: path
+          required: true
+          style: simple
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: "array of data found with given parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/measurementsArray"
+        '404':
+          description: "no datafound for given parameters"
+components:
+  schemas:
+    measurementsArray:
+      type: array
+      items:
+        oneOf:
+        - $ref: "#/components/schemas/pressureMeasurement"
+        - $ref: "#/components/schemas/temperatureMeasurement"
+        - $ref: "#/components/schemas/humidityMeasurement"
+    pressureMeasurement:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        pressure:
+          type: number
+        sensorID:
+          type: string
+      required:
+        - time
+        - pressure
+        - sensorID
+    temperatureMeasurement:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        temperature:
+          type: number
+        sensorID:
+          type: string
+      required:
+        - time
+        - temperature
+        - sensorID
+    humidityMeasurement:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        humidity:
+          type: number
+        sensorID:
+          type: string
+      required:
+        - time
+        - humidity
+        - sensorID
+    latestqueryparameters:
+      type: array
+      items:
+        type: string
+        description: "ID of sensor to get measurement from. Could be sensor MAC address, textual name of some place, etc. Must match what exists on the server."
+      example:
+        - "11:22:33:44:55:66"
+        - "kitchen"
+        - "outdoors1"
