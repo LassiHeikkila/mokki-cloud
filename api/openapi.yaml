@@ -16,6 +16,8 @@ servers:
 tags:
 - name: "environment"
   description: "API for getting environmental data from server"
+security:
+  - apiKey: []
 paths:
   /api/data/{field}/{id}/latest:
     get:
@@ -46,6 +48,8 @@ paths:
                 $ref: "#/components/schemas/measurementsArray"
         '404':
           description: "no data found for given parameters"
+        '401':
+          description: "unauthorized"
   /api/data/{field}/{id}/range:
     get:
       description: "Get data between given start and stop times"
@@ -80,14 +84,21 @@ paths:
             format: date-time
       responses:
         '200':
-          description: "array of data found with given parameters
+          description: "array of data found with given parameters"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/measurementsArray"
         '404':
-          description: "no datafound for given parameters"
+          description: "no data found for given parameters"
+        '401':
+          description: "unauthorized"
 components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-KEY
   schemas:
     measurementsArray:
       type: array
