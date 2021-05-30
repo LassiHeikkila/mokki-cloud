@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -82,6 +81,7 @@ func HandleLatest(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(b)
 }
 
@@ -123,27 +123,28 @@ func HandleRange(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(b)
 }
 
 func getFieldFromPath(path string) (string, error) {
 	// /api/data/{field}/{id}/latest
-	// field is third item
+	// field is third item, but split counts the empty value before the first /
 	segments := strings.Split(path, "/")
-	if len(segments) != 5 {
-		return "", errors.New("malformed path")
+	if len(segments) != 6 {
+		return "", fmt.Errorf("malformed path: %v", segments)
 	}
-	return segments[2], nil
+	return segments[3], nil
 }
 
 func getSensorIDFromPath(path string) (string, error) {
 	// /api/data/{field}/{id}/latest
-	// id is fourth item
+	// id is fourth item, but split counts the empty value before the first /
 	segments := strings.Split(path, "/")
-	if len(segments) != 5 {
-		return "", errors.New("malformed path")
+	if len(segments) != 6 {
+		return "", fmt.Errorf("malformed path: %v", segments)
 	}
-	return segments[3], nil
+	return segments[4], nil
 }
 
 func getTimeFromQuery(values url.Values, key string) (time.Time, error) {
