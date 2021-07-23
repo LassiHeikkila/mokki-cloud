@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: "API description for a personal project"
-  version: 0.1.0
+  version: 0.2.0
   license:
     name: MIT
     url: https://github.com/LassiHeikkila/mokki-cloud/license.MIT
@@ -16,12 +16,43 @@ servers:
 tags:
 - name: "environment"
   description: "API for getting environmental data from server"
-security:
-  - apiKey: []
 paths:
+  /api/authorize:
+    post:
+      description: "get access token"
+      tags:
+      - "authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/authorizationRequest"
+      responses:
+        '200':
+          description: "credentials ok, access token returned in response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/authorizationResponse"
+              example:
+                ok: true
+                token: "mytoken"
+
+        '401':
+          description: "credentials bad or not provided"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/authorizationResponse"
+              example:
+                ok: false
+                token: ""
   /api/data/{field}/{id}/latest:
     get:
       description: "Get latest data"
+      security:
+        - apiKey: [read]
       tags:
       - "environment"
       parameters:
@@ -55,6 +86,8 @@ paths:
       description: "Get data between given start and stop times"
       tags:
       - "environment"
+      security:
+        - apiKey: [read]
       parameters:
         - name: field
           description: "measurement to get, e.g. pressure, temperature or humidity"
@@ -82,6 +115,13 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: interval
+          in: query
+          description: "time interval (seconds) between data points."
+          required: false
+          schema:
+            type: number
+            default: 1800
       responses:
         '200':
           description: "array of data found with given parameters"
@@ -100,6 +140,26 @@ components:
       in: header
       name: X-API-KEY
   schemas:
+    authorizationRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      example:
+        username: "generic-user"
+        password: "mypassword"
+    authorizationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        token:
+          type: string
+      example:
+        ok: false
+        token: ""
     measurementsArray:
       type: array
       items:
