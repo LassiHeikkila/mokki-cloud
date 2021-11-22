@@ -1,0 +1,13 @@
+[Unit]
+Description=mokki-server service
+
+[Service]
+ExecStart=/home/ubuntu/mokki-server -cert /etc/letsencrypt/live/mokki.lassiheikkila.com/fullchain.pem -key /etc/letsencrypt/live/mokki.lassiheikkila.com/privkey.pem -influxDBConfig influxdb.json
+WorkingDirectory=/home/ubuntu/
+StandardOutput=append:/home/pi/logs/mokkiserver.log
+StandardError=append:/home/pi/logs/mokkiserver.err
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

@@ -25,7 +25,7 @@ const (
 // QueryLastValue assumes there is some data in the past 3h
 func (q *Querier) QueryLastValue(ctx context.Context, bucket, field, sensorID, measurement string) Measurement {
 	query := fmt.Sprintf(fromBucket, bucket)
-	query += fmt.Sprintf(queryLastDuration, 3*time.Hour)
+	query += fmt.Sprintf(queryLastDuration, 24*time.Hour)
 	query += fmt.Sprintf(filterSensorMAC, sensorID)
 	query += fmt.Sprintf(filterMeasurement, measurement)
 	query += fmt.Sprintf(filterField, field)
@@ -61,13 +61,14 @@ func (q *Querier) QueryLastDuration(
 	ctx context.Context,
 	bucket, field, sensorID, measurement string,
 	duration time.Duration,
+	interval time.Duration,
 ) []Measurement {
 	query := fmt.Sprintf(fromBucket, bucket)
 	query += fmt.Sprintf(queryLastDuration, duration)
 	query += fmt.Sprintf(filterSensorMAC, sensorID)
 	query += fmt.Sprintf(filterMeasurement, measurement)
 	query += fmt.Sprintf(filterField, field)
-	query += fmt.Sprintf(aggregate, 10*time.Minute)
+	query += fmt.Sprintf(aggregate, interval)
 
 	log.Println("running query:", query)
 
@@ -102,13 +103,14 @@ func (q *Querier) QueryBetweenTimes(
 	ctx context.Context,
 	bucket, field, sensorID, measurement string,
 	start, stop time.Time,
+	interval time.Duration,
 ) []Measurement {
 	query := fmt.Sprintf(fromBucket, bucket)
 	query += fmt.Sprintf(queryBetweenTimes, start.Format(time.RFC3339Nano), stop.Format(time.RFC3339Nano))
 	query += fmt.Sprintf(filterSensorMAC, sensorID)
 	query += fmt.Sprintf(filterMeasurement, measurement)
 	query += fmt.Sprintf(filterField, field)
-	query += fmt.Sprintf(aggregate, 10*time.Minute)
+	query += fmt.Sprintf(aggregate, interval)
 
 	log.Println("running query:", query)
 

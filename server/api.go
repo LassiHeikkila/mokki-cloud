@@ -8,8 +8,11 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/LassiHeikkila/mokki-cloud/server/auth"
 )
 
 var (
@@ -27,7 +30,12 @@ var (
 		id string,
 		start time.Time,
 		stop time.Time,
+		interval time.Duration,
 	) []Measurement = nil
+)
+
+const (
+	defaultRangeInterval = 30 * time.Minute
 )
 
 func HandleRoot(w http.ResponseWriter, req *http.Request) {
@@ -38,6 +46,15 @@ func HandleRoot(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	_, _ = w.Write(b)
+}
+
+func Authenticated(w http.ResponseWriter, req *http.Request) bool {
+	// header should have X-API-KEY containing valid token
+	key := req.Header.Get("X-API-KEY")
+	if key == "" {
+		return false
+	}
+	return auth.TokenIsValid(key)
 }
 
 func HandleRequest(w http.ResponseWriter, req *http.Request) {
@@ -55,8 +72,68 @@ func HandleRequest(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func HandleCheckToken(w http.ResponseWriter, req *http.Request) {
+	defer req.Body.Close()
+	if Authenticated(w, req) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	} else {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"ok":false}`))
+	}
+}
+
+func HandleAuthorization(w http.ResponseWriter, req *http.Request) {
+	type authRequestBody struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	defer req.Body.Close()
+	b, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"ok":false,"token":""}`))
+		return
+	}
+	var arb authRequestBody
+	err = json.Unmarshal(b, &arb)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"ok":false,"token":""}`))
+		return
+	}
+	log.Printf(`auth request with username "%s" and password "%s"`, arb.Username, arb.Password)
+	if !auth.IsAuthorizedUser(arb.Username, arb.Password) {
+		log.Println("credentials nok")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"ok":false,"token":""}`))
+		return
+	}
+	log.Println("credentials ok")
+	token, err := auth.GenerateToken(0)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"ok":false,"token":""}`))
+		return
+	}
+	resp := make(map[string]interface{})
+	resp["ok"] = true
+	resp["token"] = token
+	b, err = json.Marshal(resp)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"ok":false,"token":""}`))
+		return
+	}
+	_, _ = w.Write(b)
+}
+
 func HandleLatest(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
+	if !Authenticated(w, req) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	id, err := getSensorIDFromPath(req.URL.Path)
 	if err != nil {
 		log.Printf("error getting sensor id from request path (%s): %s\n", req.URL.Path, err)
@@ -87,6 +164,10 @@ func HandleLatest(w http.ResponseWriter, req *http.Request) {
 
 func HandleRange(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
+	if !Authenticated(w, req) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	id, err := getSensorIDFromPath(req.URL.Path)
 	if err != nil {
 		log.Printf("error getting sensor id from request path (%s): %s\n", req.URL.Path, err)
@@ -111,7 +192,13 @@ func HandleRange(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	data := QueryTimeRange(req.Context(), field, id, start, stop)
+	interval, err := getDurationFromQueryOrDefault(req.URL.Query(), "interval", defaultRangeInterval)
+	if err != nil {
+		log.Println("error getting interval from query:", err)
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	data := QueryTimeRange(req.Context(), field, id, start, stop, interval)
 	if data == nil {
 		log.Println("nil data returned from query")
 		http.Error(w, "no data found for given parameters", http.StatusNotFound)
@@ -153,4 +240,16 @@ func getTimeFromQuery(values url.Values, key string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("requested key %s not present", key)
 	}
 	return time.Parse(time.RFC3339Nano, value)
+}
+
+func getDurationFromQueryOrDefault(values url.Values, key string, defaultDuration time.Duration) (time.Duration, error) {
+	value := values.Get(key)
+	if value == "" {
+		return defaultDuration, nil
+	}
+	i, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return time.Duration(i) * time.Second, nil
 }

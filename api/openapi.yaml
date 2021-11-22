@@ -17,6 +17,23 @@ tags:
 - name: "environment"
   description: "API for getting environmental data from server"
 paths:
+  /api/checkToken:
+    get:
+      description: "check if access token is valid"
+      tags:
+      - "authorization"
+      parameters:
+      - name: "X-API-KEY"
+        description: "access token to validate"
+        in: header
+        schema:
+          type: string
+        required: true
+      responses:
+        '200':
+          description: "access token is valid"
+        '401':
+          description: "access token is invalid"
   /api/authorize:
     post:
       description: "get access token"
