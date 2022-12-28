@@ -2,3 +2,5 @@ influxdb.json
 running.md
 *.pem
 server
+static/
+auth.db
