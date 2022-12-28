@@ -1,11 +1,28 @@
-import React, {useState, useEffect} from 'react';
-import Chart from "./Chart";
-import NotLoggedIn from "./NotLoggedIn";
-import { useAppContext } from "../lib/contextLib";
+import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+
+import Container from 'react-bootstrap/Container';
+import Stack from 'react-bootstrap/Stack';
+import Dropdown from 'react-bootstrap/Dropdown';
+import Table from 'react-bootstrap/Table';
+
+import MyChart from "./Chart";
 import './Home.css';
 
+import {
+	selectToken,
+	selectIsAuthenticated,
+	selectSelectedMeasurement,
+	selectSelectedSensor,
+	setSelectedMeasurement,
+	setSelectedSensor
+} from '../state/AppState';
+
+import { doApiCall } from '../lib/api';
+import config from '../config.json';
+
 function unitFromQuery(query) {
-	switch(query) {
+	switch (query) {
 		case "temperature":
 			return "°C"
 		case "pressure":
@@ -17,20 +34,38 @@ function unitFromQuery(query) {
 	}
 }
 
-export default function Home() {
+const getSensorName = (settings, id) => {
+	// range over sensors, return name if value === id
+	for (var s of settings.sensors) {
+		if (s.value === id) {
+			return s.name;
+		}
+	}
+	return '';
+};
+
+const Home = () => {
+	const dispatch = useDispatch();
+
 	var now = new Date();
 	var rangeStart = new Date();
 	rangeStart.setHours(rangeStart.getHours() - (24 * 7));
 	const interval = 30 * 60;
 
-	const [activeQuery, setActiveQuery] = useState("temperature");
-	const [measurementData, setMeasurementData] = useState({});
-	const [activeSensor, setActiveSensor] = useState("");
-	const [activeUnit, setActiveUnit] = useState("Celsius");
+	const [activeQuery, setActiveQuery] = useState(useSelector(selectSelectedMeasurement));
+	const [measurementData, setMeasurementData] = useState({}); // map with sensor id as key, latest measurement as value
+	const [activeSensor, setActiveSensor] = useState(useSelector(selectSelectedSensor));
+	const [activeUnit, setActiveUnit] = useState("°C");
 	const [rangeData, setRangeData] = useState([]);
 	const [startTime] = useState(rangeStart.toISOString());
 	const [stopTime] = useState(now.toISOString());
 	const [gotSettings, setGotSettings] = useState(false);
+	const [suggestedMin, setSuggestedMin] = useState(null);
+	const [suggestedMax, setSuggestedMax] = useState(null);
+
+	const token = useSelector(selectToken);
+	const isAuthenticated = useSelector(selectIsAuthenticated);
+
 	const [settings, setSettings] = useState({
 		"suggestedMins": {
 			"temperature": -10,
@@ -45,111 +80,126 @@ export default function Home() {
 		"sensors": []
 	});
 
-	var context = useAppContext();
+	useEffect(() => {
+		// fetch settings.json on initial load
+		fetch(
+			`${config.backendUrl}/static/settings.json`
+		).then(response => response.json()
+		).then(data => {
+			if (data.sensors != null && data.sensors.length > 0) {
+				setSettings(data);
+				setGotSettings(true);
+
+				if (activeSensor === '') {
+					setActiveSensor(data.sensors[0].value);
+				}
+			} else {
+				throw new Error("settings don't contain any sensors")
+			}
+		}).catch((error) => {
+			console.log("error fetching settings: ", error)
+		});
+	}, []);
 
 	useEffect(() => {
-		async function getSettings() {
-			if (gotSettings) {
-				// no need to get them again
-				return;
-			}
-			fetch(
-				'/static/settings.json'
-			).then(response => response.json()
+		// fetch latest data point for each sensor
+		if (!gotSettings || !isAuthenticated || !activeQuery) {
+			return;
+		}
+		for (var i = 0; i < settings.sensors.length; i++) {
+			const sensor = settings.sensors[i];
+			doApiCall(
+				token,
+				'GET',
+				`data/${activeQuery}/${sensor.value}/latest`
 			).then(data => {
-				if (data.sensors != null && data.sensors.length > 0) {
-					setSettings(data);
-					setGotSettings(true);
-					setActiveSensor(data.sensors[0].value);
-				} else {
-					throw new Error("settings don't contain any sensors")
-				}
-			}).catch((error)=> {
-				console.log("error fetching settings: ", error)
-			});
-		};
-		async function getLatestData() {
-			if (!context.isAuthenticated) {
-				console.error("not authenticated, will not attempt to fetch data")
-				return
-			}
-			fetch(
-				`/api/data/${activeQuery}/${activeSensor}/latest`, {
-					method: "GET",
-					mode: "cors",
-					headers: {
-						'X-API-KEY': context.storedToken
-					}
-				}
-			).then(response => response.json()
-			).then(data => {
-				setMeasurementData(data);
-			}).catch((error) => {
-				console.log("error getting latest measurement: ", error)
-				setMeasurementData({});
-			});
-		};
+				var latestMeasurements = measurementData;
+				latestMeasurements[sensor.value] = data[`${activeQuery}`];
+				setMeasurementData(latestMeasurements);
+			}).catch((err) => {
+				console.error(`error fetching latest data for ${sensor.value}:`, err);
+			})
+		}
+	}, [gotSettings, activeQuery, token, isAuthenticated]);
 
-		async function getRangeData() {
-			if (!context.isAuthenticated) {
-				console.error("not authenticated, will not attempt to fetch data")
-				return
-			}
-			fetch(
-				`/api/data/${activeQuery}/${activeSensor}/range?from=${startTime}&to=${stopTime}&interval=${interval}`, {
-					method: "GET",
-					mode: "cors",
-					headers: {
-						'X-API-KEY': context.storedToken
-					}
-				}
-			).then(response => response.json()
-			).then(data => {
+	useEffect(() => {
+		// fetch range data
+		if (!isAuthenticated || !activeQuery || !activeSensor) {
+			return;
+		}
+		doApiCall(token, 'GET', `data/${activeQuery}/${activeSensor}/range?from=${startTime}&to=${stopTime}&interval=${interval}`)
+			.then(data => {
 				setRangeData(data);
-				const key = `${activeQuery}`;
-				setActiveUnit(unitFromQuery(key));
-				if (!context.isAuthenticated) {
-					return;
-				}
 			}).catch((error) => {
 				console.log("error getting range data: ", error);
 				setRangeData([]);
 			});
-		};
-		getSettings();
-		getLatestData();
-		getRangeData();
-	}, [activeQuery, activeSensor, startTime, stopTime, context, interval, settings, gotSettings]);
+	}, [gotSettings, activeQuery, activeSensor, startTime, stopTime, interval, token, isAuthenticated]);
 
-	console.log(measurementData)
-	if (!context.isAuthenticated) {
-		return <NotLoggedIn />
-	}
+	useEffect(() => {
+		setActiveUnit(unitFromQuery(activeQuery));
+		console.info(`dispatching selected measurement: ${activeQuery}`);
+		dispatch(setSelectedMeasurement(activeQuery));
+	}, [activeQuery, dispatch]);
+
+	useEffect(() => {
+		console.info(`dispatching selected sensor: ${activeSensor}`);
+		dispatch(setSelectedSensor(activeSensor));
+	}, [activeSensor, dispatch]);
+
+	useEffect(() => {
+		setSuggestedMin(settings.suggestedMins[`${activeQuery}`]);
+		setSuggestedMax(settings.suggestedMaxs[`${activeQuery}`]);
+	}, [settings, activeQuery]);
+
 	return (
-		<div style={{textAlign:"center"}}>
-			<p>
-			<label>
-				<select value={activeQuery} onChange={e => setActiveQuery(e.target.value)}>
-					<option key="temperature" value="temperature">Temperature</option>
-					<option key="humidity" value="humidity">Humidity</option>
-					<option key="pressure" value="pressure">Pressure</option>
-				</select>
-			</label>
-			<label>
-				<select value={activeSensor} onChange={e => setActiveSensor(e.target.value)}>
-					{settings.sensors.map((e) => {
-						return <option key={e.value} value={e.value}>{e.name}</option>;
-					})}
-				</select>
-			</label>
-			</p>
-			<p>
-				Latest measured {activeQuery} is {parseFloat(measurementData[`${activeQuery}`]).toFixed(2)} {activeUnit}.
-			</p>
-			<p>
-				Measured at {(new Date(measurementData[`time`])).toLocaleString()}.
-			</p>
-			<Chart data={rangeData} measurement={activeQuery} period='week' suggestedMin={settings.suggestedMins[`${activeQuery}`]} suggestedMax={settings.suggestedMaxs[`${activeQuery}`]} unit={unitFromQuery(`${activeQuery}`)}/>
-		</div>
+		<Container fluid='true'>
+			<h3>Latest readings</h3>
+			<Table>
+				<thead>
+					{settings.sensors.map((sensor) => (
+						<th>{sensor.name}</th>
+					))}
+				</thead>
+				<tbody>
+					<tr>
+						{settings.sensors.map((sensor) => (
+							<td>{measurementData[sensor.value]} {activeUnit}</td>
+						))}
+					</tr>
+				</tbody>
+			</Table>
+			<h3>Historical data</h3>
+			<Stack direction='horizontal' gap={3}>
+				<Dropdown>
+					<Dropdown.Toggle variant='outline-primary'>Measurement: {activeQuery}</Dropdown.Toggle>
+					<Dropdown.Menu>
+						<Dropdown.Item onClick={() => { setActiveQuery('temperature') }}>temperature</Dropdown.Item>
+						<Dropdown.Item onClick={() => { setActiveQuery('humidity') }}>humidity</Dropdown.Item>
+						<Dropdown.Item onClick={() => { setActiveQuery('pressure') }}>air pressure</Dropdown.Item>
+					</Dropdown.Menu>
+				</Dropdown>
+				<Dropdown>
+					<Dropdown.Toggle variant='outline-primary'>Sensor: {getSensorName(settings, activeSensor)}</Dropdown.Toggle>
+					<Dropdown.Menu>
+						{settings.sensors.map((sensor) => (
+							<Dropdown.Item onClick={() => { setActiveSensor(sensor.value) }}>{sensor.name}</Dropdown.Item>
+						))}
+					</Dropdown.Menu>
+				</Dropdown>
+			</Stack>
+
+			<MyChart
+				data={rangeData}
+				measurement={activeQuery}
+				period='week'
+				suggestedMin={suggestedMin}
+				suggestedMax={suggestedMax}
+				unit={activeUnit}
+			/>
+
+		</Container>
 	);
 }
+
+export default Home;

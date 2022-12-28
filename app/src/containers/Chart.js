@@ -1,8 +1,25 @@
 import React from 'react';
+
+import { Chart as ChartJS, LineElement, PointElement, LinearScale, TimeScale, Tooltip, Decimation } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import 'chartjs-adapter-date-fns';
 
+ChartJS.register(LineElement, PointElement, LinearScale, TimeScale, Tooltip, Decimation);
+
 const options = {
+	responsive: true,
+	interaction: {
+		mode: 'nearest',
+		axis: 'x',
+		intersect: false,
+	},
+	plugins: {
+		decimation: {
+			enabled: true,
+			samples: 70,
+			algorithm: 'lttb',
+		},
+	},
 	scales: {
 		x: {
 			type: 'time',
@@ -15,7 +32,7 @@ const options = {
 		line: {
 			borderColor: '#36a2eb'
 		}
-	}
+	},
 };
 
 function getTimestamps(data) {
@@ -38,7 +55,7 @@ function getValues(data, key) {
 	return vals;
 }
 
-const Chart = (props) => {
+const MyChart = (props) => {
 	const ts = getTimestamps(props.data);
 	const vals = getValues(props.data, props.measurement);
 
@@ -70,4 +87,4 @@ const Chart = (props) => {
 	)
 }
 
-export default Chart;
+export default MyChart;
