@@ -18,7 +18,7 @@
     "react-router-dom": "^6.6.0",
     "react-scripts": "^5.0.1"
   },
-  "homepage": "https://mokki.lassiheikkila.com/static"
+  "homepage": "https://mokki.lassiheikkila.com/static",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
