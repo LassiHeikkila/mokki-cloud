@@ -60,8 +60,8 @@ func GenerateToken(dur time.Duration) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	validFrom := time.Now()
-	validTo := time.Now().Add(dur)
+	validFrom := time.Now().UTC()
+	validTo := time.Now().UTC().Add(dur)
 	err = internal.InsertToken(databaseHandle, tok.String(), validFrom, validTo, false)
 	if err != nil {
 		return "", err
