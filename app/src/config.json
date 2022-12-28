@@ -1,4 +1,4 @@
 {
-    "backendUrl": "http://localhost:8080",
+    "backendUrl": "https://mokki.lassiheikkila.com",
     "minimumPasswordLength": 8
 }
