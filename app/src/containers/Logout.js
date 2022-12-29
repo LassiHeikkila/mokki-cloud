@@ -1,25 +1,26 @@
-import React, { useEffect }  from "react";
-import { useHistory } from "react-router-dom";
-import { useAppContext } from "../lib/contextLib";
+import React from 'react';
+import { useDispatch } from 'react-redux';
+import Button from 'react-bootstrap/Button';
 
-export default function Logout() {
-	const { setIsAuthenticated, storedToken } = useAppContext();
-	const history = useHistory();
+import { storeState } from '../state/Persist';
+import { setToken, setIsAuthenticated } from '../state/AppState';
 
-	useEffect(() => {
-		function logout() {
-			setIsAuthenticated(false);
-			history.push("/login");
-			localStorage.setItem('authToken', '');
+const Logout = (props) => {
+	const dispatch = useDispatch();
+
+	function logout() {
+		dispatch(setIsAuthenticated(false));
+		dispatch(setToken(''));
+		storeState();
+
+		if (props.onLogout) {
+			props.onLogout();
 		}
-		logout();
-	}, [history, setIsAuthenticated]);
+	}
 
 	return (
-		<div>
-			<h2>
-				Logged out!
-			</h2>
-		</div>
+		<Button block size='lg' type='button' onClick={() => { logout(); }}>Log out</Button>
 	);
-}
+};
+
+export default Logout;

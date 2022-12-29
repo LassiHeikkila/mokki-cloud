@@ -7,8 +7,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"strings"
 	"time"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 
@@ -16,11 +20,16 @@ import (
 	"github.com/LassiHeikkila/mokki-cloud/server/auth"
 )
 
-const applicationVersion = "0.0.1"
+const applicationVersion = "0.1.0"
+
+const (
+	allowedCORSOriginsEnvKey = "CORSORIGINS"
+)
 
 var (
-	httpsPort = 443
-	httpPort  = 80
+	httpsPort          = 443
+	httpPort           = 80
+	allowedCORSOrigins = os.Getenv(allowedCORSOriginsEnvKey)
 )
 
 func main() {
@@ -111,19 +120,68 @@ func main() {
 	r.HandleFunc("/api/data/{field}/{id}/latest", server.HandleLatest)
 	r.HandleFunc("/api/data/{field}/{id}/range", server.HandleRange)
 
+	// CORS handling courtesy of:
+	// https://stackoverflow.com/a/40987389/13580269
+	headersOK := handlers.AllowedHeaders([]string{
+		"X-API-KEY",
+		"Content-Type",
+		"Access-Control-Request-Headers",
+		"Access-Control-Request-Method",
+	})
+	originsOK := handlers.AllowedOrigins(parseAllowedOrigins(allowedCORSOrigins))
+	methodsOK := handlers.AllowedMethods([]string{http.MethodPost, http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodOptions})
+
 	const dir = "static"
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
+	handler := handlers.CombinedLoggingHandler(
+		log.Writer(),
+		handlers.CORS(originsOK, headersOK, methodsOK)(r),
+	)
+
+	server := http.Server{
+		Addr:         fmt.Sprintf(":%d", httpsPort),
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+		IdleTimeout:  15 * time.Second,
+		Handler:      handler,
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	if !*dev {
 		go func() {
-			log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", httpPort), http.HandlerFunc(redirectTLS)))
+			err := http.ListenAndServe(fmt.Sprintf(":%d", httpPort), http.HandlerFunc(redirectTLS))
+			log.Println("error returned by HTTP server:", err)
 		}()
-
-		log.Fatal(http.ListenAndServeTLS(fmt.Sprintf(":%d", httpsPort), *cert, *key, r))
+		go func() {
+			err := server.ListenAndServeTLS(*cert, *key)
+			log.Println("error returned by HTTPS server:", err)
+		}()
 	} else {
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", httpPort), r))
+		server.Addr = fmt.Sprintf(":%d", httpPort)
+		go func() {
+			err := server.ListenAndServe()
+			log.Println("error returned by HTTP server:", err)
+		}()
 	}
+
+	<-ctx.Done()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 20*time.Second)
+
+	go func() {
+		defer shutdownCancel()
+		server.Shutdown(shutdownCtx)
+	}()
+
+	<-shutdownCtx.Done()
 }
 
 func redirectTLS(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("https://%s:%d/%s", r.Host, httpsPort, r.RequestURI), http.StatusMovedPermanently)
+}
+
+func parseAllowedOrigins(confString string) []string {
+	return strings.Split(confString, ",")
 }
