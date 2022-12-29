@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import Container from 'react-bootstrap/Container';
 import Stack from 'react-bootstrap/Stack';
 import Dropdown from 'react-bootstrap/Dropdown';
+import DropdownButton from 'react-bootstrap/DropdownButton';
 import Table from 'react-bootstrap/Table';
 
 import MyChart from "./Chart";
@@ -14,25 +15,18 @@ import {
 	selectIsAuthenticated,
 	selectSelectedMeasurement,
 	selectSelectedSensor,
+	selectSelectedTimePeriod,
 	setSelectedMeasurement,
-	setSelectedSensor
+	setSelectedSensor,
+	setSelectedTimePeriod,
 } from '../state/AppState';
 
 import { doApiCall } from '../lib/api';
-import config from '../config.json';
+import { unitFromQuery, getPeriodString, getInterval } from '../lib/unitConversions';
+import { calculateRangeStart } from '../lib/time';
+import { oneDay, threeDays, oneWeek, oneMonth, second, minute, hour } from '../lib/units';
 
-function unitFromQuery(query) {
-	switch (query) {
-		case "temperature":
-			return "°C"
-		case "pressure":
-			return "Pa"
-		case "humidity":
-			return "%"
-		default:
-			return "unknown"
-	}
-}
+import config from '../config.json';
 
 const getSensorName = (settings, id) => {
 	// range over sensors, return name if value === id
@@ -41,27 +35,29 @@ const getSensorName = (settings, id) => {
 			return s.name;
 		}
 	}
-	return '';
+	return 'N/A';
 };
+
 
 const Home = () => {
 	const dispatch = useDispatch();
 
-	var now = new Date();
-	var rangeStart = new Date();
-	rangeStart.setHours(rangeStart.getHours() - (24 * 7));
-	const interval = 30 * 60;
-
 	const [activeQuery, setActiveQuery] = useState(useSelector(selectSelectedMeasurement));
-	const [measurementData, setMeasurementData] = useState({}); // map with sensor id as key, latest measurement as value
+	const [latestTemperatureData, setLatestTemperatureData] = useState({}); // map with sensor id as key, latest measurement as value
+	const [latestHumidityData, setLatestHumidityData] = useState({}); // map with sensor id as key, latest measurement as value
+	const [latestPressureData, setLatestPressureData] = useState({}); // map with sensor id as key, latest measurement as value
 	const [activeSensor, setActiveSensor] = useState(useSelector(selectSelectedSensor));
 	const [activeUnit, setActiveUnit] = useState("°C");
 	const [rangeData, setRangeData] = useState([]);
-	const [startTime] = useState(rangeStart.toISOString());
-	const [stopTime] = useState(now.toISOString());
+	const [startTime, setStartTime] = useState(calculateRangeStart(oneWeek));
+	const [stopTime, setStopTime] = useState(new Date());
+	const [timePeriod, setTimePeriod] = useState(useSelector(selectSelectedTimePeriod));
 	const [gotSettings, setGotSettings] = useState(false);
 	const [suggestedMin, setSuggestedMin] = useState(null);
 	const [suggestedMax, setSuggestedMax] = useState(null);
+	const [sensorDropdownButtonTitle, setSensorDropdownButtonTitle] = useState('Sensor');
+	const [measurementDropdownButtonTitle, setMeasurementDropdownButtonTitle] = useState('Measurement');
+	const [timePeriodButtonTitle, setTimePeriodButtonTitle] = useState('Period');
 
 	const token = useSelector(selectToken);
 	const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -93,6 +89,10 @@ const Home = () => {
 				if (activeSensor === '') {
 					setActiveSensor(data.sensors[0].value);
 				}
+
+				if (activeQuery === '') {
+					setActiveQuery('temperature');
+				}
 			} else {
 				throw new Error("settings don't contain any sensors")
 			}
@@ -103,7 +103,7 @@ const Home = () => {
 
 	useEffect(() => {
 		// fetch latest data point for each sensor
-		if (!gotSettings || !isAuthenticated || !activeQuery) {
+		if (!gotSettings) {
 			return;
 		}
 		for (var i = 0; i < settings.sensors.length; i++) {
@@ -111,91 +111,151 @@ const Home = () => {
 			doApiCall(
 				token,
 				'GET',
-				`data/${activeQuery}/${sensor.value}/latest`
+				`data/temperature/${sensor.value}/latest`
 			).then(data => {
-				var latestMeasurements = measurementData;
-				latestMeasurements[sensor.value] = data[`${activeQuery}`];
-				setMeasurementData(latestMeasurements);
+				var d = latestTemperatureData;
+				d[sensor.value] = data['temperature'];
+				setLatestTemperatureData(d);
 			}).catch((err) => {
-				console.error(`error fetching latest data for ${sensor.value}:`, err);
+				console.error(`error fetching latest temperature data for ${sensor.value}:`, err);
+			})
+
+			doApiCall(
+				token,
+				'GET',
+				`data/humidity/${sensor.value}/latest`
+			).then(data => {
+				var d = latestHumidityData;
+				d[sensor.value] = data['humidity'];
+				setLatestHumidityData(d);
+			}).catch((err) => {
+				console.error(`error fetching latest humidity data for ${sensor.value}:`, err);
+			})
+
+			doApiCall(
+				token,
+				'GET',
+				`data/pressure/${sensor.value}/latest`
+			).then(data => {
+				var d = latestPressureData;
+				d[sensor.value] = data['pressure'];
+				setLatestPressureData(d);
+			}).catch((err) => {
+				console.error(`error fetching latest pressure data for ${sensor.value}:`, err);
 			})
 		}
-	}, [gotSettings, activeQuery, token, isAuthenticated]);
+	}, [gotSettings]);
 
 	useEffect(() => {
 		// fetch range data
 		if (!isAuthenticated || !activeQuery || !activeSensor) {
 			return;
 		}
-		doApiCall(token, 'GET', `data/${activeQuery}/${activeSensor}/range?from=${startTime}&to=${stopTime}&interval=${interval}`)
-			.then(data => {
-				setRangeData(data);
-			}).catch((error) => {
-				console.log("error getting range data: ", error);
-				setRangeData([]);
-			});
-	}, [gotSettings, activeQuery, activeSensor, startTime, stopTime, interval, token, isAuthenticated]);
+		doApiCall(
+			token,
+			'GET',
+			`data/${activeQuery}/${activeSensor}/range?from=${startTime.toISOString()}&to=${stopTime.toISOString()}&interval=${getInterval(timePeriod)}`
+		).then(data => {
+			setRangeData(data);
+		}).catch((error) => {
+			console.log("error getting range data: ", error);
+			setRangeData([]);
+		});
+	}, [gotSettings, activeQuery, activeSensor, startTime, stopTime, token, isAuthenticated]);
 
 	useEffect(() => {
 		setActiveUnit(unitFromQuery(activeQuery));
-		console.info(`dispatching selected measurement: ${activeQuery}`);
 		dispatch(setSelectedMeasurement(activeQuery));
-	}, [activeQuery, dispatch]);
+		setMeasurementDropdownButtonTitle(`Measurement: ${activeQuery}`);
+	}, [activeQuery]);
 
 	useEffect(() => {
-		console.info(`dispatching selected sensor: ${activeSensor}`);
 		dispatch(setSelectedSensor(activeSensor));
-	}, [activeSensor, dispatch]);
+		setSensorDropdownButtonTitle(`Sensor: ${getSensorName(settings, activeSensor)}`);
+	}, [settings, activeSensor]);
 
 	useEffect(() => {
 		setSuggestedMin(settings.suggestedMins[`${activeQuery}`]);
 		setSuggestedMax(settings.suggestedMaxs[`${activeQuery}`]);
 	}, [settings, activeQuery]);
 
+	useEffect(() => {
+		dispatch(setSelectedTimePeriod(timePeriod));
+		setTimePeriodButtonTitle(`Period: ${getPeriodString(timePeriod)}`);
+		setStartTime(calculateRangeStart(timePeriod));
+	}, [timePeriod]);
+
+	const getLatestDataByQuery = (query) => {
+		switch (query) {
+			case 'temperature':
+				return latestTemperatureData;
+			case 'humidity':
+				return latestHumidityData;
+			case 'pressure':
+				return latestPressureData;
+			default:
+				return {};
+		}
+	};
+
 	return (
 		<Container fluid='true'>
-			<h3>Latest readings</h3>
+			<h4>Latest readings</h4>
 			<Table>
-				<thead>
+				<thead><tr key='headerRow'>
 					{settings.sensors.map((sensor) => (
 						<th>{sensor.name}</th>
 					))}
-				</thead>
-				<tbody>
-					<tr>
-						{settings.sensors.map((sensor) => (
-							<td>{measurementData[sensor.value]} {activeUnit}</td>
-						))}
-					</tr>
-				</tbody>
+				</tr></thead>
+				<tbody><tr key='bodyRow'>
+					{settings.sensors.map((sensor) => (
+						<td>{getLatestDataByQuery(activeQuery)[sensor.value]
+							? `${getLatestDataByQuery(activeQuery)[sensor.value].toFixed(1)} ${activeUnit}`
+							: "N/A"}</td>
+					))}
+				</tr></tbody>
 			</Table>
 			<h3>Historical data</h3>
 			<Stack direction='horizontal' gap={3}>
-				<Dropdown>
-					<Dropdown.Toggle variant='outline-primary'>Measurement: {activeQuery}</Dropdown.Toggle>
-					<Dropdown.Menu>
-						<Dropdown.Item onClick={() => { setActiveQuery('temperature') }}>temperature</Dropdown.Item>
-						<Dropdown.Item onClick={() => { setActiveQuery('humidity') }}>humidity</Dropdown.Item>
-						<Dropdown.Item onClick={() => { setActiveQuery('pressure') }}>air pressure</Dropdown.Item>
-					</Dropdown.Menu>
-				</Dropdown>
-				<Dropdown>
-					<Dropdown.Toggle variant='outline-primary'>Sensor: {getSensorName(settings, activeSensor)}</Dropdown.Toggle>
-					<Dropdown.Menu>
-						{settings.sensors.map((sensor) => (
-							<Dropdown.Item onClick={() => { setActiveSensor(sensor.value) }}>{sensor.name}</Dropdown.Item>
-						))}
-					</Dropdown.Menu>
-				</Dropdown>
+				<DropdownButton
+					id='measurementDropdownButton'
+					variant='outline-primary'
+					title={measurementDropdownButtonTitle}
+					size='sm'
+				>
+					<Dropdown.Item onClick={() => { setActiveQuery('temperature') }}>Temperature</Dropdown.Item>
+					<Dropdown.Item onClick={() => { setActiveQuery('humidity') }}>Humidity</Dropdown.Item>
+					<Dropdown.Item onClick={() => { setActiveQuery('pressure') }}>Air pressure</Dropdown.Item>
+				</DropdownButton>
+				<DropdownButton
+					id='sensorDropdownButton'
+					variant='outline-primary'
+					title={sensorDropdownButtonTitle}
+					size='sm'
+				>
+					{settings.sensors.map((sensor) => (
+						<Dropdown.Item onClick={() => { setActiveSensor(sensor.value) }}>{sensor.name}</Dropdown.Item>
+					))}
+				</DropdownButton>
+				<DropdownButton
+					id='timePeriodButton'
+					variant='outline-primary'
+					title={timePeriodButtonTitle}
+					size='sm'
+				>
+					<Dropdown.Item onClick={() => { setTimePeriod(oneDay) }}>1 day</Dropdown.Item>
+					<Dropdown.Item onClick={() => { setTimePeriod(threeDays) }}>3 days</Dropdown.Item>
+					<Dropdown.Item onClick={() => { setTimePeriod(oneWeek) }}>1 week</Dropdown.Item>
+					<Dropdown.Item onClick={() => { setTimePeriod(oneMonth) }}>1 month</Dropdown.Item>
+				</DropdownButton>
 			</Stack>
 
 			<MyChart
 				data={rangeData}
 				measurement={activeQuery}
-				period='week'
+				period={getPeriodString(timePeriod)}
 				suggestedMin={suggestedMin}
 				suggestedMax={suggestedMax}
-				unit={activeUnit}
 			/>
 
 		</Container>

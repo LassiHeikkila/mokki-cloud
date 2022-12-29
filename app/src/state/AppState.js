@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { oneWeek } from '../lib/units.js';
 
 export const appStateSlice = createSlice({
     name: 'app',
@@ -8,6 +9,7 @@ export const appStateSlice = createSlice({
         darkmode: false,
         selectedSensor: '',
         selectedMeasurement: '',
+        selectedTimePeriod: oneWeek,
     },
     reducers: {
         setToken: (state, action) => {
@@ -18,7 +20,6 @@ export const appStateSlice = createSlice({
             state.token = '';
         },
         setIsAuthenticated: (state, action) => {
-            console.debug(action);
             state.isAuthenticated = action.payload;
         },
         setDarkmode: (state, action) => {
@@ -30,15 +31,27 @@ export const appStateSlice = createSlice({
         setSelectedMeasurement: (state, action) => {
             state.selectedMeasurement = action.payload;
         },
+        setSelectedTimePeriod: (state, action) => {
+            state.selectedTimePeriod = action.payload;
+        }
     },
 });
 
-export const { setToken, clearToken, setIsAuthenticated, setDarkmode, setSelectedSensor, setSelectedMeasurement } = appStateSlice.actions;
+export const { 
+    setToken, 
+    clearToken, 
+    setIsAuthenticated, 
+    setDarkmode, 
+    setSelectedSensor, 
+    setSelectedMeasurement, 
+    setSelectedTimePeriod 
+} = appStateSlice.actions;
 
 export const selectToken = (state) => state.app.token;
 export const selectIsAuthenticated = (state) => state.app.isAuthenticated;
 export const selectDarkmode = (state) => state.app.darkmode;
 export const selectSelectedSensor = (state) => state.app.selectedSensor;
 export const selectSelectedMeasurement = (state) => state.app.selectedMeasurement;
+export const selectSelectedTimePeriod = (state) => state.app.selectedTimePeriod;
 
 export default appStateSlice.reducer;

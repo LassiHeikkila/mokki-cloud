@@ -4,36 +4,11 @@ import { Chart as ChartJS, LineElement, PointElement, LinearScale, TimeScale, To
 import { Line } from 'react-chartjs-2';
 import 'chartjs-adapter-date-fns';
 
-ChartJS.register(LineElement, PointElement, LinearScale, TimeScale, Tooltip, Decimation);
+import Container from 'react-bootstrap/Container';
 
-const options = {
-	responsive: true,
-	interaction: {
-		mode: 'nearest',
-		axis: 'x',
-		intersect: false,
-	},
-	plugins: {
-		decimation: {
-			enabled: true,
-			samples: 70,
-			algorithm: 'lttb',
-		},
-	},
-	scales: {
-		x: {
-			type: 'time',
-			time: {
-				unit: 'day'
-			}
-		}
-	},
-	datasets: {
-		line: {
-			borderColor: '#36a2eb'
-		}
-	},
-};
+import { unitFromQuery } from '../lib/unitConversions';
+
+ChartJS.register(LineElement, PointElement, LinearScale, TimeScale, Tooltip, Decimation);
 
 function getTimestamps(data) {
 	var ts = [];
@@ -56,34 +31,46 @@ function getValues(data, key) {
 }
 
 const MyChart = (props) => {
-	const ts = getTimestamps(props.data);
-	const vals = getValues(props.data, props.measurement);
-
-	const d = {
-		labels: ts,
-		datasets: [
-			{
-				label: props.measurement,
-				data: vals
-			}
-		]
-	};
-	var opts = options;
-	opts.scales.y = {
-		suggestedMin: props.suggestedMin,
-		suggestedMax: props.suggestedMax,
-		title: {
-			text: props.unit,
-			display: true,
-			align: 'end',
-		}
-	}
-
 	return (
-		<div className='header'>
-			<h2>Measurements from past {props.period}</h2>
-			<Line data={d} options={opts} />
-		</div>
+		<Container size='md'>
+			<Line 
+				data={{
+					labels: getTimestamps(props.data),
+					datasets: [{
+						label: props.measurement,
+						data: getValues(props.data, props.measurement),
+					}]
+				}}
+				options={{
+					responsive: true,
+					interaction: {
+						mode: 'nearest',
+						axis: 'x',
+						intersect: false,
+					},
+					scales: {
+						x: {
+							type: 'time',
+							time: {
+								unit: 'day'
+							}
+						},
+						y: {
+							suggestedMin: props.suggestedMin,
+							suggestedMax: props.suggestedMax,
+							title: {
+								text: unitFromQuery(props.measurement),
+								display: true,
+								align: 'end',
+							}
+						}
+					},
+					datasets: {
+						line: { borderColor: '#36a2eb' }
+					},
+				}} 
+			/>
+		</Container>
 	)
 }
 
