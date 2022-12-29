@@ -129,7 +129,7 @@ function App() {
 
 	return (
 		<Container fluid='lg'>
-			<Navbar bg='light' expand='lg'>
+			<Navbar bg='light' expand='md'>
 				<Navbar.Brand>Mökki status</Navbar.Brand>
 				<Navbar.Toggle aria-controls="basic-navbar-nav" />
 				<Navbar.Collapse className="justify-content-end">

@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
 import Container from 'react-bootstrap/Container';
-import Stack from 'react-bootstrap/Stack';
 import Dropdown from 'react-bootstrap/Dropdown';
 import DropdownButton from 'react-bootstrap/DropdownButton';
 import Table from 'react-bootstrap/Table';
+import Navbar from 'react-bootstrap/Navbar';
 
 import MyChart from "./Chart";
 import './Home.css';
@@ -24,7 +24,7 @@ import {
 import { doApiCall } from '../lib/api';
 import { unitFromQuery, getPeriodString, getInterval } from '../lib/unitConversions';
 import { calculateRangeStart } from '../lib/time';
-import { oneDay, threeDays, oneWeek, oneMonth, second, minute, hour } from '../lib/units';
+import { oneDay, threeDays, oneWeek, oneMonth } from '../lib/units';
 
 import config from '../config.json';
 
@@ -50,7 +50,7 @@ const Home = () => {
 	const [activeUnit, setActiveUnit] = useState("°C");
 	const [rangeData, setRangeData] = useState([]);
 	const [startTime, setStartTime] = useState(calculateRangeStart(oneWeek));
-	const [stopTime, setStopTime] = useState(new Date());
+	const [stopTime] = useState(new Date());
 	const [timePeriod, setTimePeriod] = useState(useSelector(selectSelectedTimePeriod));
 	const [gotSettings, setGotSettings] = useState(false);
 	const [suggestedMin, setSuggestedMin] = useState(null);
@@ -148,7 +148,7 @@ const Home = () => {
 
 	useEffect(() => {
 		// fetch range data
-		if (!isAuthenticated || !activeQuery || !activeSensor) {
+		if (!gotSettings || !isAuthenticated || !activeQuery || !activeSensor) {
 			return;
 		}
 		doApiCall(
@@ -161,7 +161,7 @@ const Home = () => {
 			console.log("error getting range data: ", error);
 			setRangeData([]);
 		});
-	}, [gotSettings, activeQuery, activeSensor, startTime, stopTime, token, isAuthenticated]);
+	}, [gotSettings, activeQuery, activeSensor, startTime, stopTime, token, timePeriod, isAuthenticated]);
 
 	useEffect(() => {
 		setActiveUnit(unitFromQuery(activeQuery));
@@ -199,7 +199,7 @@ const Home = () => {
 	};
 
 	return (
-		<Container fluid='true'>
+		<Container fluid='true' id='homeView'>
 			<h4>Latest readings</h4>
 			<Table>
 				<thead><tr key='headerRow'>
@@ -216,39 +216,42 @@ const Home = () => {
 				</tr></tbody>
 			</Table>
 			<h3>Historical data</h3>
-			<Stack direction='horizontal' gap={3}>
-				<DropdownButton
-					id='measurementDropdownButton'
-					variant='outline-primary'
-					title={measurementDropdownButtonTitle}
-					size='sm'
-				>
-					<Dropdown.Item onClick={() => { setActiveQuery('temperature') }}>Temperature</Dropdown.Item>
-					<Dropdown.Item onClick={() => { setActiveQuery('humidity') }}>Humidity</Dropdown.Item>
-					<Dropdown.Item onClick={() => { setActiveQuery('pressure') }}>Air pressure</Dropdown.Item>
-				</DropdownButton>
-				<DropdownButton
-					id='sensorDropdownButton'
-					variant='outline-primary'
-					title={sensorDropdownButtonTitle}
-					size='sm'
-				>
-					{settings.sensors.map((sensor) => (
-						<Dropdown.Item onClick={() => { setActiveSensor(sensor.value) }}>{sensor.name}</Dropdown.Item>
-					))}
-				</DropdownButton>
-				<DropdownButton
-					id='timePeriodButton'
-					variant='outline-primary'
-					title={timePeriodButtonTitle}
-					size='sm'
-				>
-					<Dropdown.Item onClick={() => { setTimePeriod(oneDay) }}>1 day</Dropdown.Item>
-					<Dropdown.Item onClick={() => { setTimePeriod(threeDays) }}>3 days</Dropdown.Item>
-					<Dropdown.Item onClick={() => { setTimePeriod(oneWeek) }}>1 week</Dropdown.Item>
-					<Dropdown.Item onClick={() => { setTimePeriod(oneMonth) }}>1 month</Dropdown.Item>
-				</DropdownButton>
-			</Stack>
+			<Navbar bg='light' expand='md'>
+				<Navbar.Toggle aria-controls='parameterSelectorNavbar'/>
+				<Navbar.Collapse className="justify-content-begin">
+					<DropdownButton
+						id='measurementDropdownButton'
+						variant='outline-primary'
+						title={measurementDropdownButtonTitle}
+						size='sm'
+					>
+						<Dropdown.Item onClick={() => { setActiveQuery('temperature') }}>Temperature</Dropdown.Item>
+						<Dropdown.Item onClick={() => { setActiveQuery('humidity') }}>Humidity</Dropdown.Item>
+						<Dropdown.Item onClick={() => { setActiveQuery('pressure') }}>Air pressure</Dropdown.Item>
+					</DropdownButton>
+					<DropdownButton
+						id='sensorDropdownButton'
+						variant='outline-primary'
+						title={sensorDropdownButtonTitle}
+						size='sm'
+					>
+						{settings.sensors.map((sensor) => (
+							<Dropdown.Item onClick={() => { setActiveSensor(sensor.value) }}>{sensor.name}</Dropdown.Item>
+						))}
+					</DropdownButton>
+					<DropdownButton
+						id='timePeriodButton'
+						variant='outline-primary'
+						title={timePeriodButtonTitle}
+						size='sm'
+					>
+						<Dropdown.Item onClick={() => { setTimePeriod(oneDay) }}>1 day</Dropdown.Item>
+						<Dropdown.Item onClick={() => { setTimePeriod(threeDays) }}>3 days</Dropdown.Item>
+						<Dropdown.Item onClick={() => { setTimePeriod(oneWeek) }}>1 week</Dropdown.Item>
+						<Dropdown.Item onClick={() => { setTimePeriod(oneMonth) }}>1 month</Dropdown.Item>
+					</DropdownButton>
+				</Navbar.Collapse>
+			</Navbar>
 
 			<MyChart
 				data={rangeData}

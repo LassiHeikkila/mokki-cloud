@@ -1,4 +1,4 @@
-import { oneDay, threeDays, oneWeek, oneMonth, second, minute, hour } from './units';
+import { oneDay, threeDays, oneWeek, oneMonth, minute, hour } from './units';
 
 const unitFromQuery = (query) => {
 	switch (query) {
@@ -23,9 +23,11 @@ const getInterval = (period) => {
 			return 2 * hour;
 		case oneMonth:
 			return 6 * hour;
+        default:
+            // assume that anything besides those options will be longer than a month
+            return 24 * hour;
 	}
-	// assume that anything besides those options will be longer than a month
-	return 24 * hour;
+	
 };
 
 const getPeriodString = (period) => {
@@ -38,9 +40,10 @@ const getPeriodString = (period) => {
 			return "1 week";
 		case oneMonth:
 			return "1 month";
+        default:
+            // assume that anything besides those options will be longer than a month
+	        return "unknown";
 	}
-	// assume that anything besides those options will be longer than a month
-	return "unknown";
 };
 
 export { unitFromQuery, getInterval, getPeriodString };
