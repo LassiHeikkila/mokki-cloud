@@ -17,9 +17,11 @@ import {
 	selectDarkmode,
 	selectSelectedMeasurement,
 	selectSelectedSensor,
+	selectSelectedTimePeriod,
 	setDarkmode,
 	setSelectedMeasurement,
-	setSelectedSensor
+	setSelectedSensor,
+	setSelectedTimePeriod,
 } from './state/AppState';
 
 import { loadState, storeState } from './state/Persist';
@@ -37,6 +39,7 @@ function App() {
 	const darkmode = useSelector(selectDarkmode);
 	const selectedMeasurement = useSelector(selectSelectedMeasurement);
 	const selectedSensor = useSelector(selectSelectedSensor);
+	const selectedTimePeriod = useSelector(selectSelectedTimePeriod);
 
 	const [storedStateLoaded, setStoredStateLoaded] = useState(false);
 	const [initializationCompleted, setInitializationCompleted] = useState(false);
@@ -51,7 +54,13 @@ function App() {
 	const loadStoredState = () => {
 		console.info('loading state');
 		const state = loadState();
-		console.debug(state);
+
+		if (!state) {
+			console.warn('no state loaded');
+			setStoredStateLoaded(true);
+			return;
+		}
+
 		if (state.token) {
 			dispatch(setToken(state.token));
 		}
@@ -68,6 +77,10 @@ function App() {
 			dispatch(setSelectedSensor(state.selectedSensor));
 		}
 
+		if (state.selectedTimePeriod) {
+			dispatch(setSelectedTimePeriod(state.selectedTimePeriod));
+		}
+
 		setStoredStateLoaded(true);
 	};
 
@@ -82,8 +95,9 @@ function App() {
 			darkmode: darkmode,
 			selectedMeasurement: selectedMeasurement,
 			selectedSensor: selectedSensor,
+			selectedTimePeriod: selectedTimePeriod,
 		});
-	}, [storedStateLoaded, token, darkmode, selectedMeasurement, selectedSensor]);
+	}, [storedStateLoaded, token, darkmode, selectedMeasurement, selectedSensor, selectedTimePeriod]);
 
 	// load stored state from local storage on initial load
 	useEffect(() => {
