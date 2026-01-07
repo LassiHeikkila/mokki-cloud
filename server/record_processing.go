@@ -155,6 +155,50 @@ func temperatureMeasurementFromRecord(r *query.FluxRecord) (Measurement, error) 
 	}, nil
 }
 
+func co2MeasurementFromRecord(r *query.FluxRecord) (Measurement, error) {
+	if r == nil || r.Field() != "co2" {
+		return nil, errors.New("not a co2 record")
+	}
+
+	mac, ok := r.ValueByKey("sensormac").(string)
+	if !ok || mac == "" {
+		return nil, errors.New("co2: missing sensormac field")
+	}
+	co2, ok := r.Value().(float64)
+	if !ok {
+		return nil, errors.New("co2: cannot cast value to float64")
+	}
+	recordTime := r.Time()
+
+	return &CO2Measurement{
+		SensorID_: mac,
+		CO2_:      co2,
+		Time_:     recordTime,
+	}, nil
+}
+
+func pm2p5MeasurementFromRecord(r *query.FluxRecord) (Measurement, error) {
+	if r == nil || r.Field() != "pm2p5" {
+		return nil, errors.New("not a pm2p5 record")
+	}
+
+	mac, ok := r.ValueByKey("sensormac").(string)
+	if !ok || mac == "" {
+		return nil, errors.New("pm2p5: missing sensormac field")
+	}
+	pm2p5, ok := r.Value().(float64)
+	if !ok {
+		return nil, errors.New("pm2p5: cannot cast value to float64")
+	}
+	recordTime := r.Time()
+
+	return &PM2p5Measurement{
+		SensorID_: mac,
+		PM2p5_:    pm2p5,
+		Time_:     recordTime,
+	}, nil
+}
+
 func batteryVoltageMeasurementFromRecord(r *query.FluxRecord) (Measurement, error) {
 	if r == nil || r.Field() != "batteryvoltage" {
 		return nil, errors.New("not a batteryvoltage record")

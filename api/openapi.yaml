@@ -184,6 +184,8 @@ components:
         - $ref: "#/components/schemas/pressureMeasurement"
         - $ref: "#/components/schemas/temperatureMeasurement"
         - $ref: "#/components/schemas/humidityMeasurement"
+        - $ref: "#/components/schemas/co2Measurement"
+        - $ref: "#/components/schemas/pm2p5Measurement"
     pressureMeasurement:
       type: object
       properties:
@@ -225,6 +227,36 @@ components:
       required:
         - time
         - humidity
+        - sensorID
+    co2Measurement:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        co2:
+          type: number
+          description: ppm
+        sensorID:
+          type: string
+      required:
+        - time
+        - co2
+        - sensorID
+    pm2p5Measurement:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        pm2p5:
+          type: number
+          description: ug/m3
+        sensorID:
+          type: string
+      required:
+        - time
+        - pm2p5
         - sensorID
     latestqueryparameters:
       type: array
