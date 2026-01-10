@@ -47,6 +47,7 @@ func (q *Querier) QueryLastValue(ctx context.Context, bucket, field, sensorID, m
 	for _, r := range records {
 		m, err := MeasurementFromRecord(r)
 		if err != nil {
+			log.Printf("hep: %e", err)
 			continue
 		}
 		if m.Measurement() == field {

@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	RootPath = "static/index.html"
+	RootPath = "www/index.html"
 
 	QueryLatest func(
 		ctx context.Context,

@@ -114,3 +114,55 @@ func (m *PressureMeasurement) Value() interface{} {
 func (m *PressureMeasurement) Time() time.Time {
 	return m.Time_
 }
+
+type CO2Measurement struct {
+	SensorID_ string `json:"sensorID"`
+
+	// CO2 concentration is given in ppm (parts per million)
+	CO2_ int `json:"co2"`
+
+	// Time when measurement was recorded
+	Time_ time.Time `json:"time"`
+}
+
+func (m *CO2Measurement) Measurement() string {
+	return "co2"
+}
+
+func (m *CO2Measurement) SensorID() string {
+	return m.SensorID_
+}
+
+func (m *CO2Measurement) Value() interface{} {
+	return m.CO2_
+}
+
+func (m *CO2Measurement) Time() time.Time {
+	return m.Time_
+}
+
+type PM2p5Measurement struct {
+	SensorID_ string `json:"sensorID"`
+
+	// Particular matter density given in micrograms per cubic meter
+	PM2p5_ float64 `json:"pm2p5"`
+
+	// Time when measurement was recorded
+	Time_ time.Time `json:"time"`
+}
+
+func (m *PM2p5Measurement) Measurement() string {
+	return "pm2p5"
+}
+
+func (m *PM2p5Measurement) SensorID() string {
+	return m.SensorID_
+}
+
+func (m *PM2p5Measurement) Value() interface{} {
+	return m.PM2p5_
+}
+
+func (m *PM2p5Measurement) Time() time.Time {
+	return m.Time_
+}

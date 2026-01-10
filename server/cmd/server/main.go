@@ -131,8 +131,8 @@ func main() {
 	originsOK := handlers.AllowedOrigins(parseAllowedOrigins(allowedCORSOrigins))
 	methodsOK := handlers.AllowedMethods([]string{http.MethodPost, http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodOptions})
 
-	const dir = "static"
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
+	const dir = "www"
+	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir(dir))))
 	handler := handlers.CombinedLoggingHandler(
 		log.Writer(),
 		handlers.CORS(originsOK, headersOK, methodsOK)(r),
