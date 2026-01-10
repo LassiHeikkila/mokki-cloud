@@ -119,7 +119,7 @@ type CO2Measurement struct {
 	SensorID_ string `json:"sensorID"`
 
 	// CO2 concentration is given in ppm (parts per million)
-	CO2_ float64 `json:"co2"`
+	CO2_ int `json:"co2"`
 
 	// Time when measurement was recorded
 	Time_ time.Time `json:"time"`
