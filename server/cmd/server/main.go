@@ -127,15 +127,22 @@ func main() {
 		"Content-Type",
 		"Access-Control-Request-Headers",
 		"Access-Control-Request-Method",
+		"Access-Control-Allow-Origin",
 	})
 	originsOK := handlers.AllowedOrigins(parseAllowedOrigins(allowedCORSOrigins))
-	methodsOK := handlers.AllowedMethods([]string{http.MethodPost, http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodOptions})
-
+	methodsOK := handlers.AllowedMethods([]string{
+		http.MethodPost,
+		http.MethodGet,
+		http.MethodPut,
+		http.MethodDelete,
+		http.MethodOptions,
+	})
+	credentialsOK := handlers.AllowCredentials()
 	const dir = "www"
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir(dir))))
 	handler := handlers.CombinedLoggingHandler(
 		log.Writer(),
-		handlers.CORS(originsOK, headersOK, methodsOK)(r),
+		handlers.CORS(originsOK, headersOK, methodsOK, credentialsOK)(r),
 	)
 
 	server := http.Server{
